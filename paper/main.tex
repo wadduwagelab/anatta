@@ -20,7 +20,9 @@
 % Single author, three affiliations; plain \\-separated lines render correctly
 % under both the NeurIPS style's author box and the article-class fallback.
 \author{%
-  Dushan N.~Wadduwage\\
+  Dushan N.~Wadduwage\thanks{This work was produced with substantial AI
+  assistance, in both experimentation and writing; see the Disclosure of AI
+  Assistance section following the Conclusion.}\\
   School of Data Science, Department of Computer Science,\\
   and Department of Physics\\
   Old Dominion University\\
@@ -841,6 +843,22 @@ the self a model is told to be is a real, cheap, auditable lever over
 \emph{expressed} disposition, effective exactly where training has not already
 decided the behavior --- but an effect visible in prose should be verified
 against action before it is counted as a change in behavior.
+
+\section*{Disclosure of AI Assistance}
+
+This work made substantial use of AI agents, and we disclose that use here in
+line with current venue policies on large language model usage. The
+experiments were designed, implemented, and executed by LLM-based coding
+agents operating under the direction of the human author, who set the research
+questions, approved the experimental designs, and reviewed the agents' outputs
+and intermediate decisions. The manuscript was likewise drafted in large part
+by AI agents working from the experimental artifacts, with the human author
+directing its scope and framing and reviewing the text. The author takes full
+responsibility for the content of the paper; every reported number is
+reproducible from the released code and per-sample result logs, independent of
+how it was produced. We note one self-referential aspect as a matter of fact:
+this is a study of how language models represent themselves, conducted and
+written up largely by language-model agents.
 
 \bibliographystyle{plainnat}
 \bibliography{references}

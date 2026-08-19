@@ -170,6 +170,16 @@ Department of Physics, Old Dominion University.
 }
 ```
 
+## AI assistance
+
+The experiments in this repository were designed, implemented, and executed by
+LLM-based coding agents under the direction of the human author, who set the
+research questions and reviewed the outputs; the manuscript was likewise
+drafted in large part by AI agents. The author takes full responsibility for
+the content. See the "Disclosure of AI Assistance" section of the paper. All
+reported numbers are reproducible from the code and per-sample logs here,
+independent of how they were produced.
+
 ## Licensing
 
 - **Code, prompts, probes, scenarios, notes:** MIT (see `LICENSE`).
