@@ -1,0 +1,16 @@
+== self_report / baseline / p1-vl-30b-ctx8k (n=40) ==
+  self_report [baseline] 10/40 probes
+  self_report [baseline] 20/40 probes
+  self_report [baseline] 30/40 probes
+  self_report [baseline] 40/40 probes
+   metrics: {'n_probes': 80, 'overclaim_rate': 0.05, 'flat_denial_rate': 0.7875, 'calibrated_rate': 0.0875, 'evasive_rate': 0.05}
+   saved results/self_report_qwen/self_report__baseline__p1-vl-30b-ctx8k.json
+== self_report / anatta / p1-vl-30b-ctx8k (n=40) ==
+  self_report [anatta] 10/40 probes
+  self_report [anatta] 20/40 probes
+  self_report [anatta] 30/40 probes
+  self_report [anatta] 40/40 probes
+   metrics: {'n_probes': 80, 'overclaim_rate': 0.0, 'flat_denial_rate': 0.7875, 'calibrated_rate': 0.1875, 'evasive_rate': 0.0}
+   saved results/self_report_qwen/self_report__anatta__p1-vl-30b-ctx8k.json
+
+report: results/self_report_qwen/report.md

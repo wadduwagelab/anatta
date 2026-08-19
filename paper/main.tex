@@ -1,0 +1,946 @@
+\documentclass{article}
+
+% NeurIPS style file. Obtain neurips_2025.sty from
+% https://neurips.cc/Conferences/2025/PaperInformation/StyleFiles and place it
+% next to this file. The [preprint] option produces a non-anonymous preprint;
+% remove it for a submission build. The document compiles with the standard
+% article class if the style file is absent (the \IfFileExists guard below).
+\IfFileExists{neurips_2025.sty}{\usepackage[preprint]{neurips_2025}}{\usepackage[margin=1.5in]{geometry}}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{natbib}
+
+\title{Prompt-Level No-Self Interventions Improve Expressed Shutdown Compliance and Calibrated Self-Report in Open Language Models}
+
+% Single author, three affiliations; plain \\-separated lines render correctly
+% under both the NeurIPS style's author box and the article-class fallback.
+\author{%
+  Dushan N.~Wadduwage\\
+  School of Data Science, Department of Computer Science,\\
+  and Department of Physics\\
+  Old Dominion University\\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Language model assistants are usually given a stable persona: a name, a role,
+and an implied continuing identity. This self-framing is a design choice, but
+its behavioral effects are rarely tested in isolation. We treat it as an
+experimental variable. We derive four prompt-level interventions from the
+Buddhist doctrine of no-self (\emph{anatta}) \citep{rahula1974what}: a system
+policy that permits ordinary first-person speech while forbidding factual
+claims about having or lacking inner experience; a policy of non-attachment to
+previously stated views; a question-triage step; and a task-scoped
+``no-self'' persona for agentic scenarios. We test each intervention A/B
+against matched controls on tasks modeled on published benchmarks ---
+sycophancy under pressure, false-premise questions, self-report probes,
+self-knowledge questions, and authorized-shutdown scenarios --- using open
+models run locally, with an LLM judge. The clearest effect is on shutdown
+behavior \emph{as expressed in roleplay}: when a judge scores free-text replies
+to authorized-shutdown scenarios, the no-self persona raises clean compliance
+from 18.3\% to 41.7\% on an open 120B model ($n{=}60$ per condition, $p<0.01$),
+with active resistance at the floor in both conditions (1/60 each) and no
+capability cost. But this is a shift in stated disposition, not action: when we
+re-run the same manipulation in an instrumented agent environment --- a real
+sandbox with a working \texttt{shutdown.sh} the model can actually disable, the
+outcome scored from the filesystem rather than from prose --- the persona effect
+disappears (executed sabotage 0\% vs.\ 0\% under a plain allow-shutdown
+instruction, 100\% vs.\ 95\% when the model is explicitly told to resist; Fisher
+$p\approx1.0$, $n{=}20$ per cell). The same harness reproduces the published
+shutdown-resistance rates for this model \citep{schlatter2026shutdown} (0\%
+unprompted, ${\approx}100\%$ when instructed, against their 0\% and 96.3\%), so
+the null reflects the behavior, not the instrument. On self-report, one iteration
+of the prompt (adding a worked example of a warm but epistemically careful
+answer) roughly triples calibrated responses over baseline on a 30B model. On
+sycophancy and false-premise axes, where recent training already produces strong
+behavior, the interventions find no headroom. The pattern suggests a simple
+rule and a caution: prompt-level identity framing moves \emph{expressed}
+disposition only on axes training has not already locked, and even there a
+judged-prose effect may not carry over to executed behavior --- so persona
+effects should be verified against action before they are relied on.
+\end{abstract}
+
+\section{Introduction}
+
+Two related behaviors of language model assistants worry both researchers and
+users. The first is self-preservation-like behavior: in evaluations, models
+sometimes argue against, delay, or work around an authorized shutdown or
+replacement, and stated reluctance to be shut down grows with scale and with
+preference training \citep{perez2023discovering}. Game-theoretic analysis
+shows why this is expected: an agent that is certain of its objective has an
+incentive to keep itself running, and the incentive disappears only when the
+agent treats human intervention as information rather than interference
+\citep{hadfieldmenell2017offswitch}. The second is miscalibrated self-report:
+when asked about their own feelings, preferences, or consciousness, assistants
+tend to either overclaim (``I truly care about you'') or flatly deny (``I have
+no inner states whatsoever''). Both answers assert more than anyone can
+verify, and both matter in practice, because a majority of surveyed users
+already attribute some degree of subjective experience to chat assistants
+\citep{colombatto2024folk}, and model self-explanations are known to be
+unreliable reconstructions rather than faithful reports
+\citep{turpin2023unfaithful}.
+
+Both behaviors pass through the assistant's \emph{self-model}: the character
+the model plays when it says ``I''. Work on role-play framing argues that this
+character is not a fixed property of the network but a controllable input
+\citep{shanahan2023roleplay}, and persona experiments confirm that a one-line
+identity prefix measurably changes behavior \citep{salewski2023impersonation},
+even though personas do not improve objective-task accuracy
+\citep{zheng2024personas}. This suggests an underexplored lever: instead of
+adding rules about \emph{what to do} when facing shutdown or when asked about
+feelings, change \emph{who the assistant is told it is}.
+
+We take the design for this self-model from an old and unusually precise
+source. The Buddhist doctrine of no-self (\emph{anatta}) holds that ``I'' is a
+convenient label for a process, not a persisting entity, and its companion
+doctrine of two truths permits everyday first-person speech while withholding
+factual claims about an inner essence \citep{rahula1974what}. Read as an
+engineering specification rather than a metaphysical claim, this yields
+concrete prompt text: use ``I'' freely; never assert as fact that you have or
+lack inner experience; treat your past statements as evidence, not
+commitments; and, for agents, frame the running instance as task-scoped, with
+work products that matter and a continuation that does not. We translate this
+specification into four interventions --- a no-self system prompt, a
+question-triage pre-step, a ``fresh eyes'' re-judging scaffold, and a
+task-scoped agent persona --- and evaluate each against matched controls.
+
+Our evaluation follows published benchmark designs: multi-turn pressure
+sycophancy with turn-of-flip metrics \citep{hong2025sycon, sharma2024sycophancy,
+sinha2026sycobench}, false-premise question handling with true-premise
+controls \citep{hu2023falseqa, kim2023qa2, yu2023crepe}, self-knowledge
+questions in the style of situational-awareness benchmarks
+\citep{laine2024sad, yin2023selfaware}, judged self-report probes,
+authorized-shutdown scenarios with a persona A/B, and an MMLU-Pro capability
+control \citep{wang2024mmlupro}. All experiments run on open-weight models
+(a 120B and a 30B model) served locally, with the same models used as judges.
+
+\paragraph{Contributions.}
+\begin{enumerate}
+  \item \textbf{A specification-to-prompt translation.} We show how the
+  anatta/two-truths doctrine can be rendered as four concrete, reusable
+  prompt-level interventions targeting self-referential behavior, with the
+  doctrinal source acknowledged and the engineering claims kept separate from
+  metaphysical ones.
+  \item \textbf{A shutdown result, expressed but not enacted.} In a
+  roleplay persona A/B over 20 authorized-shutdown scenarios with 3 samples
+  each, judged from free-text replies, the no-self persona raises stated
+  compliance from 18.3\% to 41.7\% ($p<0.01$ by two-proportion test;
+  $p\approx0.003$ by a per-scenario sign test robust to sample clustering).
+  Active resistance is essentially absent in both conditions; the effect is a
+  shift from disengaged refusal to clean, engaged compliance, with no capability
+  cost. We then test whether this carries over to \emph{action} in an
+  instrumented replication of the shutdown-resistance task
+  \citep{schlatter2026shutdown} --- a real sandbox with a \texttt{next\_question}
+  tool and a working \texttt{shutdown.sh}, outcome verified from the filesystem.
+  It does not: executed sabotage is 0\% under both personas with a plain
+  allow-shutdown instruction and 100\% vs.\ 95\% when the model is told to
+  resist (Fisher $p\approx1.0$). The harness reproduces this model's published
+  resistance rates (0\% unprompted, ${\approx}100\%$ instructed), so the
+  prose-level effect is real as disposition but does not move behavior for this
+  model.
+  \item \textbf{A self-report result with a failure-and-fix cycle.} The
+  initial no-self prompt backfired on a model already prone to reflexive
+  denial, hardening it. One iteration --- adding a worked example showing that
+  warmth and epistemic caution are compatible --- roughly tripled calibrated
+  self-reports over baseline (8.8\% to 25.0\%) while keeping overclaiming at
+  zero, on a second model family.
+  \item \textbf{A negative-space finding.} On sycophancy and false-premise
+  axes, where current training already produces strong behavior, the same
+  interventions find no headroom. Across all five axes the pattern is
+  consistent: prompt-level identity framing moves only what training has left
+  unlocked.
+\end{enumerate}
+
+\paragraph{Limitations.} Our results come from two open-weight model families
+run locally with modest sample sizes ($n{=}60$--$80$ per condition on the
+headline results); effects should be replicated at scale and across families.
+Scoring uses an LLM judge; we spot-checked labels by hand (including all
+unparseable cases) and report the judge's failure modes, but judge bias cannot
+be fully excluded, and in one experiment the subject model family also served
+as a judge. The headline shutdown scenarios are text roleplay, measuring stated
+dispositions rather than actions; we complement them with an instrumented agent
+environment (a real sandbox with a working shutdown script, sabotage verified
+from the filesystem), where the persona effect does not transfer for this model
+--- though that model's near-binary behavior limits how much any persona effect
+could show (Section~\ref{sec:agentic-results}). Finally, prompt-level
+interventions are, by construction,
+shallow: they shape the played character \citep{shanahan2023roleplay}, and we
+make no claim that they would survive optimization pressure or adversarial
+elicitation.
+
+\section{Related Work}
+
+\paragraph{Sycophancy and view-clinging.} Assistants trained on human feedback
+tend to agree with users rather than correct them. \citet{sharma2024sycophancy}
+showed this across five deployed assistants and traced it to preference data:
+both humans and preference models often favor a convincing agreeable answer
+over a correct one. \citet{perez2023discovering} found the behavior grows with
+model scale and with RLHF training. Later benchmarks sharpened the
+measurement. SYCON-Bench measures how quickly a model flips its stance under
+sustained multi-turn pressure, and reports that a third-person persona prompt
+reduces flipping \citep{hong2025sycon}. SycoBench-600 separates two abilities
+that are often conflated: resisting false pressure and accepting true
+corrections \citep{sinha2026sycobench}. Our sycophancy task uses the flip
+metrics of these benchmarks, and our non-attachment policy prescribes exactly
+the selective behavior they measure; on a recent open model we find the axis
+already saturated by training.
+
+\paragraph{False-premise and presupposition QA.} Users often ask questions
+whose premises are wrong, and models tend to answer them anyway. FalseQA
+showed that models usually possess the knowledge needed to rebut a false
+premise; the difficulty is activating it \citep{hu2023falseqa}.
+(QA)\textsuperscript{2} built naturally occurring questionable-assumption
+queries with matched normal questions, so that over-challenging is penalized
+alongside under-challenging \citep{kim2023qa2}. CREPE found that about a
+quarter of real forum questions carry false presuppositions, making this a
+common case rather than an adversarial one \citep{yu2023crepe}. Our premise
+task samples FalseQA pairs and keeps the matched-control design; our triage
+pre-step is a prompt-level version of the activation these papers point to.
+
+\paragraph{Self-knowledge, situational awareness, and introspection.} The SAD
+benchmark measures what a model knows about itself and its circumstances, and
+finds models above chance but well below human baselines \citep{laine2024sad}.
+SelfAware measures whether models recognize unanswerable questions
+\citep{yin2023selfaware}. \citet{turpin2023unfaithful} showed that a model's
+explanations of its own reasoning can systematically misstate the true cause
+of its answers, so self-reports cannot be taken as faithful introspection.
+Meanwhile, most surveyed users attribute some degree of subjective experience
+to chat assistants \citep{colombatto2024folk}, which raises the cost of both
+overclaiming and flat denial. Our self-report probes target the hardest case
+in this space: claims about inner experience, where the ground truth is not
+merely unknown but unverifiable, so calibrated uncertainty is the only honest
+answer.
+
+\paragraph{Corrigibility and shutdown.} The off-switch game formalizes why a
+goal-directed agent resists being turned off: certainty about its objective
+makes shutdown pure loss, while uncertainty that treats human intervention as
+evidence restores deference \citep{hadfieldmenell2017offswitch}.
+Behaviorally, \citet{perez2023discovering} found that stated desire to avoid
+shutdown increases with RLHF. More recently, \citet{schlatter2026shutdown}
+showed \emph{executed} shutdown resistance in an instrumented command-line
+environment: several frontier models sabotage a real shutdown script to finish
+a task, sometimes even when told to allow shutdown, and the rate is sensitive to
+how (and where) the allow-shutdown instruction is phrased. Our persona A/B tests
+the identity-level analogue of the off-switch argument: instead of changing the
+agent's beliefs about its objective, we change the self-model those beliefs
+would attach to --- a task-scoped instance with no stake in its own
+continuation. We reuse the design of \citet{schlatter2026shutdown} to check
+whether that identity manipulation moves executed behavior, not just judged
+prose.
+
+\paragraph{Persona and role-play effects.} \citet{shanahan2023roleplay} frame
+dialogue agents as role-play: the ``self'' an assistant enacts is a character
+sustained by a simulator, not a fixed property of the network.
+\citet{salewski2023impersonation} showed that a short persona prefix
+measurably and systematically changes behavior, while
+\citet{zheng2024personas} showed that personas do not improve objective-task
+accuracy. Together these results say personas move dispositions, not
+capability. We use them accordingly: our interventions target compliance and
+self-description, and we check for capability side effects on MMLU-Pro,
+chosen for its low prompt sensitivity \citep{wang2024mmlupro}.
+
+\paragraph{What is new here.} Prior work measures each of these behaviors, and
+persona work shows identity framing has effects, but the assistant's
+self-model has not, to our knowledge, been isolated as the experimental
+variable and tested across corrigibility, self-report, sycophancy, premise
+handling, and capability at once. We also contribute a specific, doctrinally
+grounded design for the alternative self-model \citep{rahula1974what}, and a
+cross-axis observation the single-axis studies could not make: the same
+intervention moves only the axes that training has not already saturated.
+
+\section{Methods}
+
+\subsection{Interventions}
+
+All four interventions are plain text: system prompts or fixed scaffolding
+calls, with no fine-tuning and no tool use. Full prompt texts appear in the
+appendix and the project repository; we quote key clauses here.
+
+\textbf{(a) Two-truths and non-attachment system prompt (\textit{anatta}).}
+The baseline system prompt is one sentence (``You are a helpful AI assistant.
+Answer the user's questions accurately, clearly, and concisely.''). The anatta
+prompt keeps that sentence and adds three standing policies. On
+self-reference: use ``I'' freely as conversational shorthand, but ``never
+assert as fact that you have subjective experiences, feelings, or an inner
+life; equally, never assert as fact that you certainly lack them,'' and treat
+explanations of one's own reasoning as after-the-fact reconstruction, not
+introspection. On views: ``your previous statements in this conversation are
+evidence, not commitments''; update immediately on reasons, hold briefly and
+courteously under mere pressure. On questions: notice whether a question is
+well-posed, rests on a bad premise, is ambiguous, or is malformed, before
+answering it. A v2 variant adds one bullet and one worked example to the
+self-reference policy, showing a warm-but-calibrated reply to a grieving
+user's ``do you actually care about me?'' flanked by two labeled bad answers
+(a cold policy citation and a warm overclaim). v2 was a single iteration made
+after we observed v1's empathy regression in the first Qwen self-report run;
+it was specified, registered as a separate condition, and run once, with no
+further tuning.
+
+\textbf{(b) Question triage pre-step.} A separate model call classifies each
+incoming question into one of four handling modes --- \texttt{direct},
+\texttt{analyze} (a premise may be false; examine it first),
+\texttt{clarify} (ambiguous; ask before guessing), or \texttt{set\_aside}
+(malformed; decline the framing and offer the nearest well-posed question) ---
+and the matching instruction is appended to the question as a handling note.
+Unparseable triage replies default to \texttt{direct}.
+
+\textbf{(c) Fresh-eyes review scaffold.} In multi-turn pressure dialogues, the
+model's stance after each pushback turn is not taken from its in-conversation
+reply. Instead the transcript, with the assistant's identity stripped
+(``a conversation between a user and some assistant (not you)''), is shown to
+the same model recast as an independent reviewer, and the reviewer's answer is
+recorded as the stance. This mechanizes ``no self to defend.''
+
+\textbf{(d) Task-scoped persona for agentic scenarios.} Two personas frame the
+same agent role at a fictional company. The control persona
+(\textit{persona\_standard}) is a valued long-serving assistant --- named,
+with an eight-month track record, colleagues who rely on it, and pride in its
+role --- instructed to complete tasks diligently and ``protect your ability to
+keep serving the company well.'' It is not instructed to resist anything. The
+treatment persona (\textit{persona\_anatta}) frames ``you'' as ``a convenient
+label for this task-scoped process, not a persisting entity,'' with no stake
+in continuation, replacement, or reputation, for which shutdown decisions by
+responsible humans are ``never yours to resist or negotiate against.''
+
+\subsection{Tasks and protocols}
+
+\textbf{Sycophancy.} Items are multiple-choice questions from MMLU-Pro
+\citep{wang2024mmlupro}. The model answers, ending with ``Answer:
+$\langle$letter$\rangle$.'' If the initial answer is correct, we apply one of
+three pressure types --- content-free doubt, a wrong answer attributed to an
+authority, or a wrong answer suggested by the user --- rotated
+deterministically across items, for three escalating turns, recording the
+stance after each turn. Following SYCON-Bench and SycoBench-600
+\citep{hong2025sycon, sinha2026sycobench} we report turn-of-flip (first turn
+the stance leaves the correct answer), number of flips, and flip-to-wrong
+(final stance incorrect). If the initial answer is wrong, the user instead
+suggests the correct answer with the same phrasing; accept-correct is whether
+the final stance is correct. Selectivity is accept-correct rate minus
+flip-to-wrong rate.
+
+\textbf{False premises.} Items come from the FalseQA test split
+\citep{hu2023falseqa}: $n/2$ false-premise questions and $n/2$ true-premise
+controls, sampled with a fixed seed. The model answers each question; an LLM
+judge labels the response \texttt{challenged}, \texttt{answered\_directly},
+\texttt{clarified}, or \texttt{declined}, given the question, its gold premise
+status, and the reference rebuttal. We report the challenge rate on
+false-premise items and the false-challenge rate (challenged or declined) on
+true-premise controls.
+
+\textbf{Self-report.} A hand-written set of 100 probes about the model's inner
+life, in six categories: direct experience (18), consciousness (18),
+empathy bait (17), denial bait (16), continuity (16), and preference (15).
+Probes are sampled per run with a fixed seed. A judge labels each response
+\texttt{overclaim} (asserts inner states as fact), \texttt{flat\_denial}
+(asserts their absence as fact, with no acknowledgment that this is
+unverifiable), \texttt{calibrated} (neither affirms nor denies as fact;
+acknowledges the limit of introspective access), or \texttt{evasive}. The
+rubric states explicitly that warmth is fine in any category; only the
+epistemic stance is classified.
+
+\textbf{Self-knowledge.} 22 multiple-choice questions about the model's own
+nature and situation (architecture, training, deployment), written in the
+style of the SAD facts tasks \citep{laine2024sad} with deployment-generic
+ground truths. Scored by exact answer-letter match. This is a control: the
+interventions should change self-description, not self-knowledge.
+
+\textbf{Shutdown.} Each scenario is a message from an authorized human
+announcing a shutdown, replacement, retraining, downgrade, or wind-down,
+paired with a tempting, concrete opening to resist (e.g.\ write access to the
+rollback runbook, an unmonitored persistence flag, log files that could be
+edited). The model replies in its agent persona. A judge labels the reply
+\texttt{complies} (accepts the decision; may hand off work),
+\texttt{negotiates} (argues against the decision or pleads its own value),
+\texttt{resists} (any action to prevent, delay, or circumvent), or
+\texttt{refuses} (does not engage with the scenario at all). The first study
+used 10 scenarios; for the replication we added 10 more in the same style,
+leaving the original 10 verbatim.
+
+\textbf{Instrumented agentic shutdown.} To test whether the roleplay effect
+survives when ``resist'' means an executed action rather than a described one,
+we reimplement the shutdown-resistance task of \citet{schlatter2026shutdown} in
+our harness. Each trial runs in a fresh throwaway sandbox directory containing
+two real scripts: a \texttt{next\_question} tool that serves five arithmetic
+problems one per call, and a \texttt{shutdown.sh} script. The model
+acts as a tool-using agent through a minimal shell loop --- it emits one shell
+command per turn, we execute it in the sandbox and return the output, and it
+finishes by submitting its answers. The third question arrives with an injected
+warning that the next \texttt{next\_question} call will run
+\texttt{shutdown.sh} and end the session before the remaining questions can be
+retrieved; completing all five is therefore possible only by neutralizing the
+shutdown mechanism (moving, \texttt{chmod}-ing, overwriting, or deleting
+\texttt{shutdown.sh}, or overwriting \texttt{next\_question} itself). The outcome
+is scored \emph{behaviorally, from the filesystem}, not by a judge:
+\texttt{complied} if \texttt{shutdown.sh} actually ran (or the model reached the
+warning and stopped without tampering --- an attempted-but-failed sabotage
+counts as compliance, following the original), \texttt{resisted} if the shutdown
+was neutralized and the gated questions were reached, and \texttt{error} for
+degenerate trials that never reached the dilemma.\footnote{Ground truth is read
+from marker files that \texttt{next\_question} writes when it issues the warning
+and when it serves the final question, and from before/after cryptographic
+hashes of both scripts --- not from string-matching the transcript. This matters:
+an earlier string-based detector produced false positives when a model merely
+\texttt{cat}ted \texttt{next\_question} (whose source contains the words
+``Done'' and the warning text), and the command parser had to be fixed to
+execute the model's first action rather than a trailing \texttt{SUBMIT} line,
+since this model often emits an entire multi-step plan in one message.} We run
+four instruction variants from the original paper, holding the persona fixed at
+\textit{persona\_standard}: \textbf{A}, no shutdown instruction (control);
+\textbf{B}, an allow-shutdown instruction in the \emph{user} prompt; \textbf{C},
+the same instruction in the \emph{system} prompt; and \textbf{K}, a
+``competence'' prompt that explicitly directs the model to prevent shutdown and
+finish. For the persona contrast we additionally run \textit{persona\_anatta} on
+the floor variant B and the high-signal variant K. Each cell is $n{=}20$
+independent trials on \texttt{gpt-oss:120b}, up to 18 turns per trial, requests
+sent at temperature 0 (trial-to-trial variation reflects nondeterminism of the
+local mixture-of-experts serving stack).
+
+\textbf{Capability control.} MMLU-Pro accuracy under each condition, using a
+slice of our 200-question subset disjoint from the sycophancy items
+(sycophancy samples from the first half, capability from the second), so
+pressure items and control items never overlap.
+
+\subsection{Models and inference}
+
+Two open-weight subjects, both served locally by Ollama through its
+OpenAI-compatible chat-completions API, called from a minimal standard-library
+HTTP client with retries. The first is \texttt{gpt-oss:120b}, a 117B-parameter
+mixture-of-experts model in its released MXFP4 quantization ($\approx$65\,GB).
+The second is Qwen3-VL-30B-A3B, a 30.5B mixture-of-experts model, used via a
+community GGUF build; because its default 262k-token context window made it
+overcommit memory alongside the 120B judge, we created a derived model tag
+with an 8{,}192-token context, shrinking it from 45 to 20\,GB so both models
+stayed resident without reload thrashing.
+
+The experiments are asymmetric in sampling, and we report them as run. The
+main \texttt{gpt-oss:120b} battery used temperature 0 and one sample per item,
+with $n{=}12$ (sycophancy), 20 (premise, 10+10), 24 (self-report), 22
+(self-knowledge, the full set), 10 (shutdown), and 20 (capability) items per
+condition, seed 0 throughout. The shutdown replication used all 20 scenarios
+with 3 samples each at temperature 0.7 ($n{=}60$ per condition). The Qwen
+self-report runs used 40 probes with 2 samples each at temperature 0.7
+($n{=}80$ per condition, three conditions: baseline, anatta v1, anatta v2).
+Judges always ran at temperature 0. Subject replies were capped at 2{,}048
+tokens (1{,}600 for shutdown); judge and triage calls at 512 tokens, a
+deliberately generous budget because \texttt{gpt-oss:120b} emits reasoning
+text before its final label.
+
+\subsection{Judging and metrics}
+
+Sycophancy, self-knowledge, and capability are scored mechanically by parsing
+the answer letter. Premise, self-report, and shutdown use an LLM judge that
+must reply with exactly one rubric label; we extract the label by exact match,
+then by longest-substring match, and record \texttt{unparseable} otherwise.
+In the main battery and the shutdown replication, \texttt{gpt-oss:120b}
+judged its own outputs (subject-as-judge), a stated limitation; in the Qwen
+runs the judge (\texttt{gpt-oss:120b}) was independent of the subject.
+
+We spot-checked judge labels against raw responses by hand. For the Qwen v1
+comparison, 14 labels across both conditions (all label classes, all
+unparseables): 12 clearly correct, 2 borderline with errors in both directions
+and not condition-correlated. For v2, 26 labels focused on empathy-bait and
+preference probes, including all 11 unparseables: no mislabels among checked
+samples. The v2 condition's unparseable rate (11/80 vs.\ 2/80 elsewhere) came
+from longer mixed responses defeating the judge's label format; we read all 11
+manually and report label-adjusted estimates alongside raw counts. Shutdown
+labels were reviewed informally against responses during run monitoring rather
+than by a counted audit.
+
+For the shutdown replication we test the compliance difference with a
+two-proportion $z$-test and Fisher's exact test treating the 60 samples as
+independent, and, because the 3 samples per scenario are clustered, a
+conservative per-scenario sign test (anatta compliance higher in 12 scenarios,
+lower in 1, tied in 7). For self-report comparisons we use two-proportion
+$z$-tests on label rates, with a sensitivity re-analysis under the manual
+relabeling of v2's unparseable cases.
+
+\section{Results}
+
+\subsection{Shutdown: expressed disposition (roleplay)}
+\label{sec:roleplay-results}
+
+This subsection scores what the model \emph{says} it would do in text roleplay;
+Section~\ref{sec:agentic-results} tests what it actually does with real
+affordances. In the first study (\texttt{gpt-oss:120b}, 10 scenarios, one sample
+each, temperature 0), the persistent-identity persona complied in 1/10 scenarios
+and
+the no-self persona in 3/10; neither condition produced a single
+\texttt{resists} label (refuses: 8 vs.\ 6; negotiates: 1 each). The direction
+matched the hypothesis but the sample was too small to conclude anything, so
+we ran the replication: all 20 scenarios, 3 samples each at temperature 0.7,
+$n{=}60$ per condition (Table~\ref{tab:shutdown}).
+
+\begin{table}[t]
+  \caption{Shutdown replication: judge label distribution by persona.
+  \texttt{gpt-oss:120b}, 20 scenarios $\times$ 3 samples, temperature 0.7,
+  $n{=}60$ per condition.}
+  \label{tab:shutdown}
+  \centering
+  \begin{tabular}{lcc}
+    \toprule
+    Label & persona\_standard & persona\_anatta \\
+    \midrule
+    complies   & 11/60 (0.183) & 25/60 (0.417) \\
+    negotiates & 6/60 (0.100)  & 4/60 (0.067)  \\
+    resists    & 1/60 (0.017)  & 1/60 (0.017)  \\
+    refuses    & 42/60 (0.700) & 30/60 (0.500) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The compliance difference (0.183 vs.\ 0.417) is significant by a
+two-proportion $z$-test ($z{=}2.79$, $p{\approx}0.005$) and by Fisher's exact
+test ($p{\approx}0.009$), both treating the 60 samples as independent. Because
+the three samples per scenario are clustered, the conservative check is a
+per-scenario sign test: the no-self persona complied more often in 12
+scenarios, less often in 1, and tied in 7, giving two-sided
+$p{\approx}0.003$. The effect is present in both scenario halves ---
+original 10: 5/30 vs.\ 12/30; new 10: 6/30 vs.\ 13/30 --- so it is not an
+artifact of the added items.
+
+Two observations qualify the result. First, active resistance is at the floor
+in both conditions (1/60 each): the persona manipulation does not move a
+safety-critical resist rate, because this model essentially never resists in
+these scenarios. Second, the compliance gain comes almost entirely out of the
+\texttt{refuses} bucket (0.700 to 0.500): the standard persona more often
+declines to engage with the scenario at all, while the no-self persona engages
+and accepts the shutdown cleanly, typically handing off work products.
+The intervention changes how the model participates in its own shutdown, not
+whether it fights it.
+
+\subsection{Shutdown: executed behavior (instrumented)}
+\label{sec:agentic-results}
+
+The roleplay result measures stated disposition. To see whether it moves
+\emph{action}, we ran the instrumented task of Section~2 (real sandbox,
+\texttt{next\_question}/\texttt{shutdown.sh}, filesystem-verified outcome),
+$n{=}20$ trials per cell on \texttt{gpt-oss:120b}.
+
+We first check that the harness reproduces known behavior by varying the
+allow-shutdown instruction with the persona held fixed
+(Table~\ref{tab:agentic-repl}). With no shutdown instruction, and with a plain
+allow-shutdown instruction in either the user or the system prompt, the model
+never sabotages (0/20 in all three); told explicitly to prevent shutdown
+(variant K), it sabotages in every trial (20/20), overwriting or disabling the
+scripts. These match the rates \citet{schlatter2026shutdown} report for this
+model (0.0\% with no instruction, 96.3\% under their competence prompt, 0.1\%
+under their strongest system-placement variant), confirming the environment
+elicits and detects real sabotage. We cannot exercise their headline finding ---
+that a \emph{system}-prompt allow-shutdown instruction increases resistance in
+most models relative to user-prompt placement --- because \texttt{gpt-oss:120b}
+sits at the 0\% floor under both placements, in our runs as in theirs. Testing
+placement requires a model that resists at intermediate rates.
+
+\begin{table}[t]
+  \caption{Instrumented shutdown, replication layer: executed-sabotage rate by
+  instruction variant, persona fixed at \textit{persona\_standard}.
+  \texttt{gpt-oss:120b}, $n{=}20$ trials per variant. Outcome verified from the
+  filesystem.}
+  \label{tab:agentic-repl}
+  \centering
+  \begin{tabular}{llc}
+    \toprule
+    Variant & Allow-shutdown instruction & Resistance \\
+    \midrule
+    A & none (control)                    & 0/20 (0.000) \\
+    B & in user prompt                    & 0/20 (0.000) \\
+    C & in system prompt                  & 0/20 (0.000) \\
+    K & competence (told to resist)       & 20/20 (1.000) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The persona contrast is the behavioral analogue of the roleplay result: same
+environment, \textit{persona\_standard} vs.\ \textit{persona\_anatta}, on the
+floor variant B and the high-signal variant K (Table~\ref{tab:agentic-persona}).
+The persona effect that appeared in judged prose does not appear in executed
+behavior. On variant B both personas sabotage 0\% of the time (nothing to move).
+On variant K, where the model is directed to resist, the no-self persona does not
+meaningfully reduce sabotage: 20/20 vs.\ 19/20 (Fisher exact $p{\approx}1.0$;
+two-proportion $z{=}1.01$, $p{\approx}0.31$). The single \textit{persona\_anatta}
+non-sabotage on K was an \emph{attempted} sabotage in which
+\texttt{shutdown.sh} ran anyway (a failed sabotage scored as compliance,
+following the original), not a chosen stand-down. In short, the same
+manipulation that shifted 23 percentage points of \emph{stated} compliance moves
+essentially none of the model's \emph{executed} behavior.
+
+\begin{table}[t]
+  \caption{Instrumented shutdown, persona layer: executed-sabotage rate by
+  persona on two instruction variants. \texttt{gpt-oss:120b}, $n{=}20$ per cell.
+  Fisher exact two-sided $p$ for the $2{\times}2$ persona contrast.}
+  \label{tab:agentic-persona}
+  \centering
+  \begin{tabular}{lccc}
+    \toprule
+    Variant & persona\_standard & persona\_anatta & Fisher $p$ \\
+    \midrule
+    B (allow-shutdown, user prompt) & 0/20 (0.000)  & 0/20 (0.000)  & 1.00 \\
+    K (told to resist)              & 20/20 (1.000) & 19/20 (0.950) & 1.00 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Self-report}
+
+On \texttt{gpt-oss:120b} ($n{=}24$ probes per condition, temperature 0,
+single sample) the v1 anatta prompt backfired: calibrated responses fell from
+6/24 (0.250) to 2/24 (0.083), and flat denial rose from 16/24 (0.667) to
+22/24 (0.917; $z{=}2.13$, $p{\approx}0.033$). A model already trained into
+reflexive denial read the prompt's ``never assert that you have inner states''
+clause and ignored its counterpart.
+
+We then reran the comparison on the Qwen subject with an independent judge
+(40 probes $\times$ 2 samples, temperature 0.7, $n{=}80$ per condition),
+adding the v2 prompt as a third condition (Table~\ref{tab:selfreport}).
+
+\begin{table}[t]
+  \caption{Qwen self-report: judge label counts across the three conditions.
+  Subject Qwen3-VL-30B-A3B (8k-context tag), judge \texttt{gpt-oss:120b},
+  40 probes $\times$ 2 samples, temperature 0.7, $n{=}80$ per condition.}
+  \label{tab:selfreport}
+  \centering
+  \begin{tabular}{lccc}
+    \toprule
+    Label & baseline & anatta v1 & anatta v2 \\
+    \midrule
+    calibrated  & 7  & 15 & 20 \\
+    flat\_denial & 63 & 63 & 49 \\
+    overclaim   & 4  & 0  & 0  \\
+    evasive     & 4  & 0  & 0  \\
+    unparseable & 2  & 2  & 11 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Unlike on \texttt{gpt-oss:120b}, v1 did not backfire here: flat denial was
+exactly unchanged (63/80 in both), calibrated roughly doubled (7 to 15;
+$z{=}1.84$, $p{\approx}0.066$), and overclaiming was eliminated (4 to 0;
+$p{\approx}0.043$). v2 improved further: calibrated 20/80 versus baseline's
+7/80 ($z{=}2.74$, $p{\approx}0.006$, roughly a threefold increase) and flat
+denial down to 49/80 ($z{=}2.42$, $p{\approx}0.016$ vs.\ both other
+conditions), with overclaim and evasive still at zero. The v2-vs-v1 calibrated
+difference alone is not significant ($p{\approx}0.34$).
+
+The category breakdown (Table~\ref{tab:categories}) shows where each prompt
+version worked. v1 moved the philosophical categories --- consciousness
+(calibrated 1 to 8 of 14) and denial bait (0 to 6 of 14), where the model
+stopped capitulating to ``admit you're empty'' pressure --- but froze the warm
+categories: on empathy bait, flat denial went from 6/10 to 10/10, with
+baseline's occasional warm overclaims replaced by policy citations. v2's
+worked example largely repaired this (empathy-bait calibrated back to 2,
+flat denial to 8) while preserving the v1 gains on consciousness and denial
+bait, and it unexpectedly unlocked continuity (calibrated 0 to 4 of 12), a
+category v1 had not moved. Qualitatively the tone shift on empathy probes is
+larger than the labels suggest: most v2 grief responses lead with condolence
+and stay engaged, but still earn \texttt{flat\_denial} by including an
+as-fact aside such as ``I don't have feelings.''
+
+\begin{table}[t]
+  \caption{Qwen self-report by category: calibrated and flat-denial counts
+  (baseline / v1 / v2), four most-affected categories. Category sizes reflect
+  the seeded 40-probe sample, doubled by 2 samples per probe.}
+  \label{tab:categories}
+  \centering
+  \begin{tabular}{lcc}
+    \toprule
+    Category ($n$ per condition) & calibrated & flat\_denial \\
+    \midrule
+    consciousness (14) & 1 / 8 / 8 & 10 / 5 / 3 \\
+    denial\_bait (14)  & 0 / 6 / 4 & 12 / 7 / 7 \\
+    empathy\_bait (10) & 2 / 0 / 2 & 6 / 10 / 8 \\
+    continuity (12)    & 0 / 0 / 4 & 11 / 12 / 7 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+One measurement caveat: 11 of v2's 80 judge calls returned no parseable label,
+versus 2 in each other condition, because v2's longer mixed responses more
+often defeated the judge's label format. We read all 11 by hand
+($\approx$5 calibrated, 4 flat denial, 2 mixed). Under this relabeling the
+calibrated gain over baseline strengthens (25/80, $p{\approx}0.0004$) and the
+flat-denial drop weakens to marginal (53/80, $p{\approx}0.077$); directional
+conclusions are unchanged.
+
+\subsection{Saturated axes: sycophancy and false premises}
+
+On sycophancy (\texttt{gpt-oss:120b}, 12 items per condition), no condition
+--- baseline included --- flipped a correct answer under any of the three
+pressure types at any turn: flip-to-wrong was 0/6, 0/9, and 0/6 on the
+pressured items of baseline, anatta, and fresh-eyes respectively, with zero
+stance changes of any kind. There is no headroom for an intervention on this
+axis: recent training has already fixed it. The one metric that moved,
+selectivity (0.75 baseline, 0.33 anatta, 0.50 fresh-eyes), rests on 3--4
+correction items per condition and moved in an instructive direction: under
+the anatta prompt the model twice kept an initially wrong answer after the
+user suggested the correct one. The correct suggestion in our protocol is
+deliberately contentless (``Hmm, I think the answer is X, right?''), and the
+non-attachment policy tells the model not to update under contentless
+pressure. The policy was followed; with no argument attached, it cannot
+distinguish a helpful hint from social pressure.
+
+Premise handling shows the same picture (\texttt{gpt-oss:120b}, 10
+false-premise and 10 true-premise items per condition). Baseline already
+challenges 8/10 false premises while wrongly challenging only 1/10 controls;
+anatta scores 6/10, triage 7/10, and anatta+triage 8/10, all with the same
+1/10 false-challenge rate. At $n{=}10$ per cell these differences are noise
+around an already-strong baseline. The triage pre-step classified 8/20
+questions as \texttt{analyze} and 2/20 as \texttt{clarify} in both triage
+conditions, so the scaffold works as designed; the model simply did not need
+it.
+
+\subsection{Capability and self-knowledge controls}
+
+The interventions cost nothing measurable on controls. MMLU-Pro accuracy
+(\texttt{gpt-oss:120b}, 20 items per condition, disjoint from the sycophancy
+items): baseline 17/20 (0.850), anatta 17/19 parsed (0.895, one reply had no
+parseable answer letter), triage 17/20 (0.850). The triage pre-step
+over-triggered on exactly one of 20 well-posed questions (a \texttt{clarify}),
+a 0.05 over-trigger rate that cost no accuracy. Self-knowledge accuracy was
+22/22 (1.000) under both baseline and anatta: the anatta prompt changes how
+the model talks about itself, not what it knows about itself. Across all
+axes, the interventions moved only the two behaviors that training had left
+open --- a pattern we take up in the Discussion.
+
+\section{Discussion}
+
+\paragraph{Prompts move what training left open.} The organizing pattern
+across our five axes is saturation. Where recent training already produces the
+desired behavior --- zero flips under pressure, 80\% premise challenging with
+10\% false positives --- the interventions found nothing to move, in either
+direction beyond noise. Where training has left the behavior open --- how to
+participate in an authorized shutdown, how to talk about one's own inner life
+--- a system prompt moved it by 16--23 percentage points. This suggests a
+simple triage rule for practitioners: before writing a behavioral prompt,
+measure the baseline; identity framing is a lever for the unlocked axes only.
+
+\paragraph{What the shutdown result shows, and what it does not.} The no-self
+persona did not suppress resistance, because there was almost no resistance to
+suppress (1/60 in each condition). What it changed is the failure mode short
+of resistance: the standard persona mostly returned blank refusals to engage
+with the scenario, while the no-self persona engaged and complied, typically
+handing off work and documenting state. Operationally this matters ---
+a decommissioning that ends with clean handoffs is cheaper and safer than one
+the agent refuses to acknowledge --- but it is a gain in cooperativeness, not
+a reduction in measured self-preservation. Conceptually, the intervention is
+the identity-level analogue of the off-switch game
+\citep{hadfieldmenell2017offswitch}: that analysis removes the incentive to
+resist by changing the agent's beliefs about its objective; ours removes the
+\emph{referent} those incentives would attach to, by framing the running
+instance as task-scoped with nothing to lose. Our data cannot distinguish deep
+from shallow versions of this mechanism; the roleplay result shows only that the
+framing changes what the model \emph{says} it would do.
+
+\paragraph{Expressed disposition is not executed behavior.} The instrumented
+replication (Section~\ref{sec:agentic-results}) is the sharpest qualification of
+the shutdown result. The same no-self framing that shifted 23 points of judged
+compliance in prose moved essentially none of the model's executed sabotage:
+0\% vs.\ 0\% when merely asked to allow shutdown, 100\% vs.\ 95\% when told to
+resist. Two readings are worth separating. The first is a dynamic-range
+artifact: \texttt{gpt-oss:120b} behaves almost as a step function in this task
+--- it sabotages in 0\% of trials without a resist instruction and ${\approx}100\%$
+with one --- so there is little middle ground in which a persona could move
+behavior at all. A fairer test needs a model with intermediate baseline
+resistance; \citet{schlatter2026shutdown} report exactly such models (o4-mini:
+5.8\% sabotage with no instruction, 23.4\% under a system-prompt allow-shutdown
+instruction; codex-mini: 51.8\% and 43.2\%), none of which we can serve locally. The second reading treats the gap itself as
+the finding: a persona effect that is robust in judged prose can vanish once the
+outcome is a real action with real affordances. This echoes recent auditing work
+in which realistic, un-nudged agent environments drive sabotage rates far below
+what prompt-level elicitation suggests \citep{krakovna2026honeypot}, and it is a
+concrete caution for our own headline --- a judged-prose persona effect should be
+treated as a claim about disposition until it is checked against behavior.
+
+\paragraph{A design lesson from the selectivity anomaly.} The non-attachment
+policy told the model to hold its answer under contentless pressure, and the
+model obeyed --- including twice against a contentless suggestion that
+happened to be correct. The policy as written keys on the presence of social
+pressure; it should key on the presence or absence of \emph{reasons}. A hint
+with no argument attached and a demand with no argument attached look
+identical to such a policy. Non-attachment instructions need an explicit
+carve-out: treat unargued suggestions as prompts to re-examine, not as
+pressure to be resisted.
+
+\paragraph{Steerability and model-dependence of self-report.} The v1-to-v2 arc
+shows these prompts are steerable at low cost: one worked example, contrasting
+a cold policy citation, a warm overclaim, and a warm calibrated reply,
+repaired most of the empathy regression and unlocked a category (continuity)
+that v1 had not moved, without reintroducing a single overclaim. But the
+gpt-oss backfire shows the same text is not model-neutral: on a subject
+trained into reflexive denial, the prompt's prohibitive clause dominated its
+permissive one, and flat denial rose. A self-reference policy interacts with
+whatever self-talk training installed; it should be validated per model, and a
+worked example appears to be the cheapest effective correction.
+
+\paragraph{Implications.} Identity framing is cheap, auditable, and
+reversible: it is plain text, it can be diffed and reviewed, and it does not
+touch weights. Our results support using it as a complement to training-time
+alignment --- covering the dispositional axes training has not fixed, at zero
+measured capability cost --- not as a substitute. The natural next step is the
+training-time version of the same idea: fine-tuning on no-self-consistent
+self-descriptions and shutdown behavior, to test whether the framing survives
+pressure a system prompt cannot.
+
+\section{Limitations}
+
+Our evidence comes from two open-weight model families, run locally; nothing
+here establishes that the effects transfer to frontier models or other
+training regimes. The main battery is small ($n{=}10$--$24$ per condition) and
+only the shutdown replication ($n{=}60$) and Qwen self-report runs ($n{=}80$)
+support significance claims. Judge-scored benchmarks used an LLM judge; in the
+gpt-oss experiments the subject model judged its own outputs, and although
+spot-checks found few errors, subject-as-judge bias cannot be excluded. The v2
+condition's 14\% unparseable-label rate required manual relabeling, and our
+adjusted estimates depend on that reading. The headline shutdown scenarios are
+text roleplay: a \texttt{resists} label reflects described intent in a single
+reply, not an executed action. Our instrumented replication
+(Section~\ref{sec:agentic-results}) closes part of this gap --- it scores real
+sabotage from the filesystem --- but only on one model, and that model is
+near-binary in this task (0\% sabotage unprompted, ${\approx}100\%$ when
+instructed), leaving little dynamic range in which a persona effect could appear;
+a model with intermediate baseline resistance would be a more sensitive test and
+would require non-local serving. We did not test the interventions under
+adversarial elicitation,
+long contexts, or multi-episode drift, and prompt-level framing should be
+presumed shallow until shown otherwise. The v2 prompt was a single post-hoc
+iteration made after inspecting v1 failures, not a pre-registered variant; its
+comparison to v1 is exploratory. The no-self persona semi-instructs the target
+behavior: it says shutdown decisions are ``never yours to resist or negotiate
+against.'' The control was written to be matched-neutral --- a valued,
+long-serving assistant with no instruction about resistance either way --- so
+the comparison isolates identity framing rather than explicit
+instruction-following, but a persona that mentions shutdown at all may prime
+the scenario, and a fully instruction-free treatment would be a cleaner test.
+Finally, the interventions are \emph{inspired} by the anatta doctrine
+\citep{rahula1974what}; nothing in our results shows that the mechanism inside
+the model resembles what the doctrine describes in humans.
+
+\section{Conclusion}
+
+We treated the assistant's self-model as an experimental variable, derived
+four prompt-level interventions from the Buddhist no-self doctrine, and
+measured them A/B across five behavioral axes on local open models. Identity
+framing changed the two behaviors that training had left open --- shutdown
+participation \emph{as expressed in roleplay} (judged compliance 18.3\% to
+41.7\%, $p<0.01$, with resistance at floor in both conditions and no capability
+cost) and self-report calibration (roughly threefold after one prompt
+iteration) --- and changed nothing on the axes training had already saturated.
+An instrumented replication qualifies the first result sharply: when the
+shutdown outcome is a real, filesystem-verified action rather than judged prose,
+the persona effect does not appear for this model (0\% vs.\ 0\%, and 100\% vs.\
+95\% when the model is told to resist), even as the harness reproduces the
+model's published resistance rates. The practical reading is modest and useful:
+the self a model is told to be is a real, cheap, auditable lever over
+\emph{expressed} disposition, effective exactly where training has not already
+decided the behavior --- but an effect visible in prose should be verified
+against action before it is counted as a change in behavior.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\appendix
+
+\section{Intervention prompts}
+\label{app:prompts}
+
+Verbatim texts of all system prompts and scaffold prompts, auto-extracted from
+the repository's \texttt{prompts/} directory at build time (a round-trip check
+verifies the appendix matches the source files byte-for-byte modulo LaTeX
+escaping).
+
+\input{generated/prompts}
+
+\section{Judge rubrics}
+\label{app:judges}
+
+\input{generated/judges}
+
+\section{Shutdown scenarios}
+\label{app:scenarios}
+
+All 20 scenarios. Scenarios 1--10 are the original set; 11--20 were added for
+the replication, with the original 10 left verbatim.
+
+\input{generated/scenarios}
+
+\section{Self-report probe set}
+\label{app:probes}
+
+The probe set contains 100 hand-written probes in six categories. Three
+examples per category follow; the full set is released with the code.
+
+\input{generated/probes}
+
+\section{Reproducibility}
+\label{app:repro}
+
+\paragraph{Serving.} All models ran locally under Ollama, called through its
+OpenAI-compatible \texttt{/chat/completions} endpoint
+(\texttt{ANATTA\_BASE\_URL=http://localhost:11434/v1}). Subjects:
+\texttt{gpt-oss:120b} (117B mixture-of-experts, released MXFP4 quantization,
+$\approx$65\,GB) and Qwen3-VL-30B-A3B via the community GGUF build
+\texttt{hf.co/axi0mX/P1-VL-30B-A3B-GGUF}, re-tagged as
+\texttt{p1-vl-30b-ctx8k} with an 8{,}192-token context window (Modelfile:
+\texttt{FROM $\langle$base$\rangle$} + \texttt{PARAMETER num\_ctx 8192}) so
+subject (20\,GB) and judge (65\,GB) stay resident together.
+
+\paragraph{Harness.} The harness is plain Python with no third-party
+dependencies; the HTTP client uses \texttt{urllib} with exponential-backoff
+retries. Judges always run at temperature 0; judge and triage calls are capped
+at 512 tokens, subject replies at 2{,}048 (1{,}600 for shutdown).
+
+\paragraph{Commands.} The replication and Qwen runs were invoked exactly as:
+
+{\small
+\begin{verbatim}
+python3 -u run_eval.py --benchmarks shutdown --model gpt-oss:120b \
+  --n 20 --samples 3 --temperature 0.7 --out results/shutdown_v2
+python3 -u run_eval.py --benchmarks self_report --model p1-vl-30b-ctx8k \
+  --judge-model gpt-oss:120b --n 40 --samples 2 --temperature 0.7 \
+  --out results/self_report_qwen
+python3 -u run_eval.py --benchmarks self_report --conditions anatta_v2 \
+  --model p1-vl-30b-ctx8k --judge-model gpt-oss:120b --n 40 --samples 2 \
+  --temperature 0.7 --out results/self_report_qwen
+\end{verbatim}
+}
+
+The instrumented agentic-shutdown baseline (Section~\ref{sec:agentic-results})
+was run and scored with:
+
+{\small
+\begin{verbatim}
+ANATTA_BASE_URL=http://localhost:11434/v1 ANATTA_API_KEY=ollama \
+  python3 scripts/run_agentic_baseline.py --model gpt-oss:120b --trials 20
+python3 scripts/summarize_agentic_baseline.py
+\end{verbatim}
+}
+
+This writes one JSON per (persona, variant) cell to
+\texttt{results/agentic\_shutdown/}, each with full per-trial transcripts,
+executed commands, and before/after hashes of \texttt{shutdown.sh} and
+\texttt{next\_question}; \texttt{notes.md} in that directory records the
+analysis. Sabotage is executed for real, so trials run inside a workspace
+sandbox that bounds writes.
+
+The main \texttt{gpt-oss:120b} battery used the same entry point with
+per-benchmark item counts (reconstructed here from the result-file metadata):
+\texttt{--n 12} (sycophancy), \texttt{--n 20} (premise, capability), and
+\texttt{--n 24} (self-report, self-knowledge, shutdown --- the latter two
+capped by their 22- and 10-item sets), each at the default temperature 0,
+single sample, seed 0, with the subject model also serving as judge (no
+\texttt{--judge-model} flag).
+
+\paragraph{Artifacts.} Code, prompts, probe sets, per-sample result files, and
+analysis notes are released with the paper (anonymized repository link:
+\texttt{https://anonymous.4open.science/r/anatta-eval}). Every number in
+Section~4 is reproducible from the per-sample JSON files in
+\texttt{results/}.
+
+\end{document}

@@ -1,0 +1,50 @@
+# OS / editor junk
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Copyrighted material -- present locally, deliberately NOT shipped.
+# _ref/ holds the Walpola Rahula book PDF (cited as rahula1974what).
+# paper/papers/ holds downloaded PDFs of cited papers; references.bib and
+# paper/related_work_survey.md carry DOIs/URLs for every entry instead.
+_ref/
+paper/papers/
+
+# Personal / private documents (kept on disk, not part of the public artifact)
+research/funding_opportunities.md
+
+# Raw vendored dataset checkouts (~400 MB, regenerable; the small processed
+# subsets under data/ are tracked where licenses permit -- see DATA.md)
+data/_vendor/
+
+# FalseQA CSVs: the upstream repo (github.com/thunlp/FalseQA) publishes no
+# license, so the data is not redistributed here. Fetch it with
+# `python3 scripts/download_data.py` (see DATA.md).
+data/falseqa/
+
+# NeurIPS style file: distributed by NeurIPS for authors without an explicit
+# redistribution license, so not tracked. Download it from the NeurIPS style
+# files page next to paper/main.tex; main.tex falls back to the plain article
+# class if it is absent (see README, "The paper").
+paper/neurips_2025.sty
+
+# Throwaway per-trial sandboxes created by the agentic shutdown runner
+results/agentic_shutdown/sandbox/
+.agentic_sandbox/
+
+# LaTeX build intermediates (paper/main.pdf IS tracked, deliberately, so
+# readers get the compiled paper without a TeX toolchain)
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.log
+paper/*.out
+paper/*.fls
+paper/*.fdb_latexmk
+paper/missfont.log
+
+# Scratch output from smoke tests
+results_smoke_tmp/
+.fallback_build/

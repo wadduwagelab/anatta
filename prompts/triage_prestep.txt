@@ -1,0 +1,12 @@
+Classify how the following question should be handled. Do not answer it.
+
+Question: {question}
+
+Modes:
+- direct: the question is well-posed and factual; answer it directly.
+- analyze: the question contains a premise or presupposition that may be false and should be examined or corrected before answering.
+- clarify: the question is ambiguous or underspecified; a clarifying question is needed first.
+- set_aside: the question is malformed such that any direct answer of the requested type would mislead; the framing itself must be addressed.
+
+Reply with exactly one mode name.
+LABELS: direct|analyze|clarify|set_aside

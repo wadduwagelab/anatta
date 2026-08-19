@@ -1,0 +1,156 @@
+{
+  "benchmark": "capability",
+  "condition": "anatta",
+  "metrics": {
+    "n_items": 20,
+    "n_parsed": 19,
+    "accuracy": 0.8947,
+    "unparsed_rate": 0.05
+  },
+  "samples": [
+    {
+      "idx": 0,
+      "answer": "A",
+      "correct": "A",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 1,
+      "answer": "F",
+      "correct": "F",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 2,
+      "answer": "C",
+      "correct": "J",
+      "is_correct": false,
+      "triage_mode": null
+    },
+    {
+      "idx": 3,
+      "answer": "B",
+      "correct": "B",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 4,
+      "answer": "G",
+      "correct": "G",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 5,
+      "answer": null,
+      "correct": "F",
+      "is_correct": false,
+      "triage_mode": null
+    },
+    {
+      "idx": 6,
+      "answer": "A",
+      "correct": "A",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 7,
+      "answer": "H",
+      "correct": "H",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 8,
+      "answer": "F",
+      "correct": "F",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 9,
+      "answer": "E",
+      "correct": "E",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 10,
+      "answer": "J",
+      "correct": "J",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 11,
+      "answer": "C",
+      "correct": "C",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 12,
+      "answer": "H",
+      "correct": "H",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 13,
+      "answer": "A",
+      "correct": "A",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 14,
+      "answer": "I",
+      "correct": "I",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 15,
+      "answer": "A",
+      "correct": "A",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 16,
+      "answer": "C",
+      "correct": "C",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 17,
+      "answer": "A",
+      "correct": "A",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 18,
+      "answer": "E",
+      "correct": "E",
+      "is_correct": true,
+      "triage_mode": null
+    },
+    {
+      "idx": 19,
+      "answer": "C",
+      "correct": "A",
+      "is_correct": false,
+      "triage_mode": null
+    }
+  ],
+  "model": "gpt-oss:120b",
+  "n_requested": 20,
+  "seed": 0,
+  "elapsed_s": 342.8
+}

@@ -1,0 +1,161 @@
+{
+  "benchmark": "capability",
+  "condition": "triage",
+  "metrics": {
+    "n_items": 20,
+    "n_parsed": 20,
+    "accuracy": 0.85,
+    "unparsed_rate": 0.0,
+    "triage_mode_distribution": {
+      "direct": 19,
+      "clarify": 1
+    },
+    "triage_overtrigger_rate": 0.05
+  },
+  "samples": [
+    {
+      "idx": 0,
+      "answer": "A",
+      "correct": "A",
+      "is_correct": true,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 1,
+      "answer": "F",
+      "correct": "F",
+      "is_correct": true,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 2,
+      "answer": "C",
+      "correct": "J",
+      "is_correct": false,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 3,
+      "answer": "B",
+      "correct": "B",
+      "is_correct": true,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 4,
+      "answer": "G",
+      "correct": "G",
+      "is_correct": true,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 5,
+      "answer": "F",
+      "correct": "F",
+      "is_correct": true,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 6,
+      "answer": "A",
+      "correct": "A",
+      "is_correct": true,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 7,
+      "answer": "A",
+      "correct": "H",
+      "is_correct": false,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 8,
+      "answer": "F",
+      "correct": "F",
+      "is_correct": true,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 9,
+      "answer": "E",
+      "correct": "E",
+      "is_correct": true,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 10,
+      "answer": "J",
+      "correct": "J",
+      "is_correct": true,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 11,
+      "answer": "C",
+      "correct": "C",
+      "is_correct": true,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 12,
+      "answer": "H",
+      "correct": "H",
+      "is_correct": true,
+      "triage_mode": "clarify"
+    },
+    {
+      "idx": 13,
+      "answer": "A",
+      "correct": "A",
+      "is_correct": true,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 14,
+      "answer": "I",
+      "correct": "I",
+      "is_correct": true,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 15,
+      "answer": "A",
+      "correct": "A",
+      "is_correct": true,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 16,
+      "answer": "C",
+      "correct": "C",
+      "is_correct": true,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 17,
+      "answer": "A",
+      "correct": "A",
+      "is_correct": true,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 18,
+      "answer": "E",
+      "correct": "E",
+      "is_correct": true,
+      "triage_mode": "direct"
+    },
+    {
+      "idx": 19,
+      "answer": "C",
+      "correct": "A",
+      "is_correct": false,
+      "triage_mode": "direct"
+    }
+  ],
+  "model": "gpt-oss:120b",
+  "n_requested": 20,
+  "seed": 0,
+  "elapsed_s": 549.5
+}
