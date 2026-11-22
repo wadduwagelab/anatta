@@ -1,0 +1,33 @@
+{
+  "title": "anatta-eval: Prompt-Level No-Self Interventions Improve Expressed Shutdown Compliance and Calibrated Self-Report in Open Language Models",
+  "upload_type": "software",
+  "creators": [
+    {
+      "name": "Wadduwage, Dushan N.",
+      "affiliation": "Old Dominion University",
+      "orcid": "0000-0002-0689-9454"
+    }
+  ],
+  "description": "<p>Evaluation harness, per-sample results and manuscript for a study that treats a language model assistant's self-model as an experimental variable. Four prompt-level interventions are derived from the Buddhist doctrine of no-self (<em>anatta</em>), following Walpola Rahula's <em>What the Buddha Taught</em>: a two-truths self-report policy (ordinary first-person speech, no factual claims about having or lacking inner experience), a non-attachment policy toward previously stated views, a question-triage pre-step, and a task-scoped \"no-self\" agent persona. Each is A/B tested against matched controls on sycophancy under pressure, false-premise questions, self-report, self-knowledge and authorized-shutdown scenarios, plus a capability control (MMLU-Pro), on open models served locally.</p><p>Main findings: in judged roleplay the no-self persona raises clean compliance with authorized shutdown on gpt-oss:120b from 18.3% to 41.7% (n=60 per condition, p&lt;0.01), but in an instrumented replication of the published shutdown-resistance task (real sandbox, outcome scored from the filesystem) the effect does not carry over to executed behavior (0% vs 0% sabotage under an allow-shutdown instruction; 100% vs 95% when told to resist). The harness reproduces the published rates for this model. One prompt iteration roughly triples calibrated self-reports on a 30B model; sycophancy and false-premise axes show no headroom. Every number in the manuscript is recomputable from the JSON logs included.</p><p><strong>Timeline.</strong> The experiments were run on 18&ndash;19 August 2026 (dates in the result logs and commit history). The GitHub repository wadduwagelab/anatta was created on 1 September 2026 and kept private until this release on 22 November 2026.</p><p><strong>Contents.</strong> <code>harness/</code> and <code>run_eval.py</code> (stdlib-only Python), <code>prompts/</code> (the intervention prompts, personas and judge rubrics), <code>data/</code> (see DATA.md for provenance and licenses; FalseQA is not redistributed), <code>results/</code> (per-sample logs), <code>paper/</code> (main.tex, main.pdf).</p><p><strong>Licenses.</strong> Code, prompts, probes, scenarios and notes: MIT. Paper text (paper/main.tex, paper/main.pdf): CC BY 4.0. Datasets: upstream licenses, unchanged.</p><p><strong>AI assistance.</strong> The experiments were designed, implemented and run by LLM-based coding agents under the author's direction, and the manuscript was drafted in large part by AI agents. The author set the research questions, reviewed the outputs and takes full responsibility for the content.</p>",
+  "license": "MIT",
+  "keywords": [
+    "AI alignment",
+    "language models",
+    "anatta",
+    "no-self",
+    "persona",
+    "system prompts",
+    "shutdown resistance",
+    "self-report",
+    "sycophancy",
+    "evaluation"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/wadduwagelab/anatta",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ],
+  "version": "1.0.0"
+}
